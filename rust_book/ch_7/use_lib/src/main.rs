@@ -1,0 +1,3 @@
+use lrust;
+
+fn main() {}
