@@ -26,13 +26,15 @@ mod own_future_realizaiton {
         socket: Socket,
     }
     impl SocketRead {
-        pub fn set_readable_callback(&self, f: fn()) {}
+        // '_f' because this is a demo example
+        pub fn set_readable_callback(&self, _f: fn()) {}
     }
 
     impl SimpleFuture for SocketRead {
         type Output = Socket;
 
-        fn poll(&mut self, wake: fn()) -> Poll<Self::Output> {
+        // '_wake' because this is a demo example
+        fn poll(&mut self, _wake: fn()) -> Poll<Self::Output> {
             if self.socket.has_data_to_read() {
                 Poll::Ready(&self.socket)
             } else {
@@ -124,11 +126,9 @@ mod alternate_calls {
         }
     }
 }
+use timer::use_timer;
 mod timer {
-    use super::*;
-
     use futures::{
-        executor,
         future::{BoxFuture, FutureExt},
         task::{waker_ref, ArcWake},
     };
@@ -215,6 +215,66 @@ mod timer {
             },
         )
     }
+    impl Spawner {
+        // or 'pub fn new(...)' if its easier for you to understand
+        pub fn spawn(&self, future: impl Future<Output = ()> + 'static + Send) {
+            let future = future.boxed();
+
+            let task = Arc::new(Task {
+                future: Mutex::new(Some(future)),
+                task_sender: self.task_sender.clone(),
+            });
+
+            self.task_sender.send(task).unwrap();
+        }
+    }
+    impl ArcWake for Task {
+        fn wake_by_ref(arc_self: &Arc<Self>) {
+            let cloned = arc_self.clone();
+
+            arc_self.task_sender.send(cloned).unwrap();
+        }
+    }
+    impl Executor {
+        pub fn run(&self) {
+            while let Ok(task) = self.reciever.recv() {
+                let mut future_slot = task.future.lock().unwrap();
+
+                if let Some(mut future) = future_slot.take() {
+                    let waker = waker_ref(&task);
+
+                    let context = &mut Context::from_waker(&waker);
+
+                    if future.as_mut().poll(context).is_pending() {
+                        *future_slot = Some(future);
+                    }
+                }
+            }
+        }
+    }
+    pub fn use_timer() {
+        let (executor, spawner) = new_executor_and_spawner();
+
+        // two spawners to demonstrate async work
+        spawner.spawn(async {
+            println!("second hello");
+
+            TimerFuture::new(Duration::from_secs(5)).await;
+
+            println!("second done");
+        });
+        spawner.spawn(async {
+            println!("hello");
+
+            TimerFuture::new(Duration::from_secs(2)).await;
+            println!("done");
+        });
+
+        // if dont use drop executor will wait sender forever
+        drop(spawner);
+
+        executor.run();
+    }
 }
 fn main() {
     // Modules in this program:
@@ -224,4 +284,5 @@ fn main() {
     // 2. simultaneous_calls
     //
     // 3. timer
+    use_timer();
 }
