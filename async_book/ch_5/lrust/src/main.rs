@@ -1,4 +1,4 @@
-mod stream {
+mod stream_learn {
     use futures::stream::Stream;
     use futures::stream::StreamExt;
     use futures::stream::TryStreamExt;
