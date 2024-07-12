@@ -163,7 +163,7 @@ mod pin_to_heap {
     }
 
     // if you want use func that expect Unpin future you can
-    // pass Pin<Box<T>>
+    // use Box::pin
     pub async fn test_exunf() {
         let fut = async {};
         let fut = Box::pin(fut);
