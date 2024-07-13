@@ -53,6 +53,7 @@ mod may_problem_without_pin {
     }
 }
 mod pin_to_stack {
+    use futures::pin_mut;
     use std::marker::PhantomPinned;
     use std::pin::Pin;
 
@@ -92,13 +93,18 @@ mod pin_to_stack {
             unsafe { &*(self.a_ptr) }
         }
         pub fn use_testpin() {
-            let mut test1 = TestPin::new("testpin");
-            // shadind required
-            let mut test1 = unsafe { Pin::new_unchecked(&mut test1) };
+            let test1 = TestPin::new("testpin");
+            pin_mut!(test1);
+            // (or alternative for pin_mut! without futures crate):
+            // let mut test1 = unsafe { Pin::new_unchecked(&mut test1) };
+
             test1.as_mut().init();
 
-            let mut test2 = TestPin::new("second testpin");
-            let mut test2 = unsafe { Pin::new_unchecked(&mut test2) };
+            let test2 = TestPin::new("second testpin");
+            pin_mut!(test2);
+            // (or alternative for pin_mut! without futures crate):
+            // let mut test2 = unsafe { Pin::new_unchecked(&mut test2) };
+
             test2.as_mut().init();
 
             println!("TESTPIN1: {}, {}", test1.a, unsafe { &*(test1.a_ptr) });
