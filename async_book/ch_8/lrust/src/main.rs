@@ -1,56 +1,50 @@
-use lib::ThreadPool;
-use std::io::{BufRead, BufReader, Write};
-use std::net::{TcpListener, TcpStream};
+use std::fs;
+use std::io::prelude::*;
+use std::net::TcpListener;
+use std::net::TcpStream;
+use std::thread;
 use std::time::Duration;
-use std::{fs, thread};
 
 fn main() {
-    // press while holding 'Ctrl' to quickly open site: http://127.0.0.1:7878/
-    //                       to see 5 sec server sleep: http://127.0.0.1:7878/sleep
-    //                          to see error `NOT FOUND`: http://127.0.0.1:7878/gjksjaqwoep
+    // press while holding 'Ctrl' to:
+    //                       quickly open site: >> http://127.0.0.1:7878/ <<
+    //                  see 5 sec server sleep: >> http://127.0.0.1:7878/sleep; <<
+    //                   see error `NOT FOUND`: >> http://127.0.0.1:7878/gjksjaqwoep <<
 
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-    let pool = ThreadPool::new(4);
 
-    println!("Sever started.");
+    // Block forever, handling each request that arrives at this IP address
+    for stream in listener.incoming() {
+        let stream = stream.unwrap();
 
-    // server accepts only 3 requests, after which it stops working
-    for request in listener.incoming().take(3) {
-        let request = request.unwrap();
-
-        println!("Сonnection established");
-        pool.execute(|| {
-            handle_connection(request);
-        });
+        handle_connection(stream);
     }
 }
-fn handle_connection(mut request: TcpStream) {
-    let buf_reader = BufReader::new(&request);
-    let request_line = buf_reader.lines().next().unwrap().unwrap();
 
-    let (status, html_str): (&str, &str) = match request_line.as_str() {
-        "GET / HTTP/1.1" => ("HTTP/1.1 200 OK", "hello.html"),
-        "GET /sleep HTTP/1.1" => {
-            thread::sleep(Duration::from_secs(5));
-            ("HTTP/1.1 200 OK", "hello.html")
-        }
+fn handle_connection(mut stream: TcpStream) {
+    // Read the first 1024 bytes of data from the stream
+    let mut buffer = [0; 1024];
+    stream.read(&mut buffer).unwrap();
 
-        _ => ("HTTP/1.1 404 NOT FOUND", "404.html"),
+    let get = b"GET / HTTP/1.1\r\n";
+    let sleep = b"GET /sleep HTTP/1.1\r\n";
+
+    // Respond with greetings or a 404,
+    // depending on the data in the request
+    let (status_line, filename) = if buffer.starts_with(get) {
+        ("HTTP/1.1 200 OK\r\n\r\n", "hello.html")
+    } else if buffer.starts_with(sleep) {
+        thread::sleep(Duration::from_secs(3));
+
+        ("HTTP/1.1 200 OK\r\n\r\n", "hello.html")
+    } else {
+        ("HTTP/1.1 404 NOT FOUND\r\n\r\n", "404.html")
     };
+    let contents = fs::read_to_string(filename).unwrap();
 
-    let resp = fs::read_to_string(html_str).expect("");
-    let resp_len = resp.len();
-
-    let response = format!(
-        "{status}\
-        Content-Length: {resp_len}\r\n\r\n\
-        {resp}"
-    );
-
-    request
-        .write_all(response.as_bytes())
-        .expect("err to send response");
-
-    // info about request:
-    // println!("{request_stream:#?}");
+    // Write response back to the stream,
+    // and flush the stream to ensure the response is sent back to the client
+    let response = format!("{}{}", status_line, contents);
+    stream.write(response.as_bytes()).unwrap();
+    stream.flush().unwrap();
 }
