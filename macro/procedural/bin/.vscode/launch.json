@@ -7,15 +7,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'lrust'",
+            "name": "Debug executable 'bin'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=lrust",
-                    "--package=lrust"
+                    "--bin=bin",
+                    "--package=bin"
                 ],
                 "filter": {
-                    "name": "lrust",
+                    "name": "bin",
                     "kind": "bin"
                 }
             },
@@ -25,16 +25,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'lrust'",
+            "name": "Debug unit tests in executable 'bin'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=lrust",
-                    "--package=lrust"
+                    "--bin=bin",
+                    "--package=bin"
                 ],
                 "filter": {
-                    "name": "lrust",
+                    "name": "bin",
                     "kind": "bin"
                 }
             },
